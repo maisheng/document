@@ -4,8 +4,8 @@
 
 版本号|完成时间|拟稿/修订人|发布时间|变更说明
 ---|---|---|---|---
-V1.0.1|2018-09-01|ywzou、sjchen|2018-10-08|文档创建
-V1.0.0|2018-12-04|ywzou|2018-12-05|支付通知增加支付发起方式、停车场编号字段，入场、出场照片非必填
+V1.0.0|2018-09-01|ywzou、sjchen|2018-10-08|文档创建
+V1.0.1|2018-12-04|ywzou|2018-12-05|支付通知增加支付发起方式、停车场编号字段，入场、出场照片非必填
 
 ## 一、概述
 主要方便技术人员开发对接，实现停车费用的在线电子支付。通讯方式采用的物联协议MQTT,所以需要MQTT相关的依赖。
@@ -50,7 +50,7 @@ int main(){
     string sysCode = "0001";
     string channelNumber = "A4";
     string key = "201822134513165313";
-    string ssxUrl = "http://192.168.1.2:8080/miniprogram-web";
+    string ssxUrl = "http://192.168.1.2:8080";
     string res = SSXSDK::init(manufacturer, parkCode, sysCode, key,channelNumber , ssxUrl);
     cout << "init() responseData ->  " << res << endl;
     system("pause");
@@ -341,7 +341,7 @@ SDK通知计费系统相应的操作指令。停车场计费系统更具指令�
 主要实现车辆未出场，车主发起提前缴费，嗖嗖行云平台将发送查询指令到SDK，SDK接收到指令以后，将相应的订单数据推送到嗖嗖行平台，用户提前支付停车费，支付成功后在规定的优惠时间内驶出停车场。
 
 ##### 2.2.1.2、调用方法
-需要车场的计费系统实现接口`CommandInterface`中的`queryOrder(string orderId,string carNumber)`方法，SDK接收到查询指令后会自动调用该方法，并传入车辆入场时的唯一流水号和车牌号码，计费系统可根据流水号和车牌号码查询出订单信息然后推送（调用方法：`SSXSDK::pushOrder(_orderId,_carNumber, inTime,inChannel, outTime, outChannel, duration,orderAmount)`）到嗖嗖行平台
+需要车场的计费系统实现接口`CommandInterface`中的`queryOrder(string parkCode,string orderId,string carNumber)`方法，SDK接收到查询指令后会自动调用该方法，并传入车辆入场时的唯一流水号和车牌号码，计费系统可根据流水号和车牌号码查询出订单信息然后推送（调用方法：`SSXSDK::pushOrder(_orderId,_carNumber, inTime,inChannel, outTime, outChannel, duration,orderAmount)`）到嗖嗖行平台
 
 ##### 2.2.1.3、传入参数
 - SDK回调传参 （`回调方法queryOrder(...)`）
@@ -387,13 +387,10 @@ class CallBackImpl:public CommandInterface{
 public:
     CallBackImpl(){}
     //预支付场景 获取订单数据
-    void queryOrder(string orderId, string carNumber);
-    //扫码支付获取最新要出场且在出场闸口的车辆订单数据
-    void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
-    //扫码入场
-    voidscanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
-    //支付结果通知
-    void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime);
+    void queryOrder(string parkCode,string orderId, string carNumber);
+
+    //其他实现项
+    //...... 
 };
 #endif // CALLBACKIMPL_H
 ```
@@ -404,7 +401,7 @@ public:
  
 using namespace std;
  
-void CallBackImpl::queryOrder(stringorderId, string carNumber) {
+void CallBackImpl::queryOrder(string parkCode, string orderId, string carNumber) {
     cout << "client interface implqueryOrder() " << endl;
     const string _orderId=orderId;
     const string_parkCode="201808150001";
@@ -431,7 +428,7 @@ void CallBackImpl::queryOrder(stringorderId, string carNumber) {
 用户在不使用嗖嗖行小程序的情况下，车辆在入场时扫描入场二维码进行入场。针对无牌车辆停车场景。
 
 ##### 2.2.2.2、调用方法
-需要车场的计费系统实现接口`CommandInterface`中的`scanQrEntry(string parkCode,stringsysCode,string channel,string carNumber)`方法,SDK接收到指令会调用该方法，车场自行判断入口是否有车辆等待入场、放行入场、推送入场数据（调用2.1.2）。
+需要车场的计费系统实现接口`CommandInterface`中的`scanQrEntry(string parkCode,stringsysCode,string channel,string carNumber,int tempCar)`方法,SDK接收到指令会调用该方法，车场自行判断入口是否有车辆等待入场、放行入场、推送入场数据（调用2.1.2）。
 
 ##### 2.2.2.3、传入参数
 >SDK回调传参
@@ -441,6 +438,7 @@ void CallBackImpl::queryOrder(stringorderId, string carNumber) {
 parkCode|true|string|车场流水号，嗖嗖行提供
 sysCode|true|string|计费系统编号
 carNumber|true|string|车牌号
+tempCar|true|string|是否是临时车牌 1是 0不是
 
 ##### 2.2.2.4、示例
 > callbackimpl.h
@@ -456,15 +454,12 @@ using namespace ssx_sdk;
  
 class CallBackImpl:public CommandInterface{
 public:
-    CallBackImpl(){}
-    //预支付场景 获取订单数据
-    void queryOrder(string orderId, string carNumber);
-    //扫码支付获取最新要出场且在出场闸口的车辆订单数据
-    void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
+    CallBackImpl(){};
     //扫码入场
-    voidscanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
-    //支付结果通知
-    void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime);
+    void scanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
+
+    //其他实现项
+    //.......
 };
 #endif // CALLBACKIMPL_H
 ```
@@ -504,7 +499,7 @@ channel|true|string|扫码通道
 scanNumber|true|string|扫码流水号
 orderId|true|string|车场流水号
 carNumber|true|string|车牌号
-tempCar|true|int|是否是临时车（1:是 2:否）
+tempCar|true|int|是否是临时车（1:是 0:否）
 
 >推送数据
 
@@ -517,7 +512,7 @@ inTime|true|string|入场时间（格式：yyyyMMddHHmmss）
 inChannel|true|string|入场通道
 outTime|true|string|离场时间（格式：yyyyMMddHHmmss）
 outChannel|true|string|离场通道
-duration|true|string|停车时长（单位：分）
+duration|true|string|停车时长（单位：分钟）
 orderAmount|true|string|停车费用（单位：分）
 
 ##### 2.2.3.4、返回值
@@ -541,14 +536,12 @@ using namespace ssx_sdk;
 class CallBackImpl:public CommandInterface{
 public:
     CallBackImpl(){}
-    //预支付场景 获取订单数据
-    void queryOrder(string orderId, string carNumber);
     //扫码支付获取最新要出场且在出场闸口的车辆订单数据
     void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
-    //扫码入场
-    voidscanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
-    //支付结果通知
-    void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime);
+    
+    //其他实现项
+    //......
+
 };
 #endif // CALLBACKIMPL_H
 ```
@@ -581,7 +574,7 @@ void CallBackImpl::scanQrCodePay(string parkCode,string sysCode,string channel,s
 ##### 2.2.4.1、简述
 主要用于支付结果的通知，仅在支付成功的时候调用
 ##### 2.2.4.2、调用方法
-需要车场的计费系统实现接口`CommandInterface中的noticeOfPaymentResult (string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime,string parkCode)`方法，计费系统自行决定自己的业务处理
+需要车场的计费系统实现接口`CommandInterface中的noticeOfPaymentResult (string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime,int payMethod,string parkCode)`方法，计费系统自行决定自己的业务处理
 ##### 2.2.4.3、传入参数
 >回调方法传入参数
 
@@ -619,14 +612,13 @@ using namespace ssx_sdk;
 class CallBackImpl:public CommandInterface{
 public:
     CallBackImpl(){}
-    //预支付场景 获取订单数据
-    void queryOrder(string orderId, string carNumber);
-    //扫码支付获取最新要出场且在出场闸口的车辆订单数据
-    void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
-    //扫码入场
-    voidscanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
+
     //支付结果通知
     void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime);
+
+    //其他实现项
+    //.......
+
 };
 #endif // CALLBACKIMPL_H
 ```
@@ -798,13 +790,10 @@ using namespace ssx_sdk;
 
 CallBackService::CallBackService()
 {
-
 }
-
 
 CallBackService::~CallBackService()
 {
-
 }
 
 int charLength(const char* str){
@@ -821,7 +810,7 @@ void CallBackService::handleNotice(const char* strJsonData){
 
     cout << "CallBackService-->handleNotice() param "<< strJsonData << endl;
 
-     cout << "CallBackService-->handleNotice() charLength "<< charLength(strJsonData) << endl;
+    cout << "CallBackService-->handleNotice() charLength "<< charLength(strJsonData) << endl;
     int valuesize = charLength(strJsonData);
     QByteArray jsonData = QByteArray(strJsonData,valuesize);
     QString simpjson_str(jsonData);
