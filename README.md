@@ -37,6 +37,26 @@ channelNumber|true|string|通道编号
 code|string|返回码 0000:成功 其他表示失败
 msg|string|返回信息描述
 
+##### 2.1.1.5、示例
+``` C++
+#include <string>
+#include <iostream>
+#include "SSX_SDK.h"
+using namespace std;
+using namespace ssx_sdk;
+int main(){
+    string manufacturer = "201808290001";
+    string parkCode = "201808150001";
+    string sysCode = "0001";
+    string channelNumber = "A4";
+    string key = "201822134513165313";
+    string ssxUrl = "http://192.168.1.2:8080/miniprogram-web";
+    string res = SSXSDK::init(manufacturer, parkCode, sysCode, key,channelNumber , ssxUrl);
+    cout << "init() responseData ->  " << res << endl;
+    system("pause");
+}
+```
+>输出结果：{"code":"0000","msg":"初始化成功!"}
 
 #### 2.1.2、车辆入场
 ##### 2.1.2.1、简述
