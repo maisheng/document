@@ -468,17 +468,470 @@ voidCallBackImpl::scanQrEntry(string parkCode,string sysCode,string channel,stri
 
 #### 2.2.3、扫码支付
 ##### 2.2.3.1、简述
+主要用于扫描二维码支付的场景，用户扫描二维码时嗖嗖行云平台发送指令到SDK,SDK回调方法推送正在出场闸口的唯一一个车辆的订单数据。
+
 ##### 2.2.3.2、调用方法
+需要车场的计费系统实现接口`CommandInterface中的scanQrCodePay (string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar)`方法，在方法中实现计费系统推送（`SSXSDK::scanningOrder(scanNumber,orderId,carNumber,inTime ,inChannel,outTime,outChannel,duration,orderAmount)`）在当前闸口的唯一的数据到嗖嗖行平台，注意判断车牌是否一致，临牌除外。支付订单以支付系统推送的数据为准。
+
 ##### 2.2.3.3、传入参数
+>SDK回调方法
+
+参数|必选|类型|说明
+---|---|---|---
+parkCode|true|string|车场编号
+sysCode|true|string|计费系统编号
+channel|true|string|扫码通道
+scanNumber|true|string|扫码流水号
+orderId|true|string|车场流水号
+carNumber|true|string|车牌号
+tempCar|true|int|是否是临时车（1:是 2:否）
+
+>推送数据
+
+参数|必选|类型|说明
+---|---|---|---
+orderId|true|string|流水号
+scanNumber|true|string|扫描流水号，由嗖嗖行提供
+carNumber|true|string|车牌号
+inTime|true|string|入场时间（格式：yyyyMMddHHmmss）
+inChannel|true|string|入场通道
+outTime|true|string|离场时间（格式：yyyyMMddHHmmss）
+outChannel|true|string|离场通道
+duration|true|string|停车时长（单位：分）
+orderAmount|true|string|停车费用（单位：分）
+
 ##### 2.2.3.4、返回值
+参数|类型|说明
+---|---|---
+code|string|返回码
+msg|string|返回信息描述
+
 ##### 2.2.3.5、示例
+> callbackimpl.h
+``` C++
+#include <iostream>
+#include "CommandInterface.h"
+ 
+using namespace std;
+using namespace ssx_sdk;
+ 
+#ifndef CALLBACKIMPL_H
+#define CALLBACKIMPL_H
+ 
+class CallBackImpl:public CommandInterface{
+public:
+    CallBackImpl(){}
+    //预支付场景 获取订单数据
+    void queryOrder(string orderId, string carNumber);
+    //扫码支付获取最新要出场且在出场闸口的车辆订单数据
+    void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
+    //扫码入场
+    voidscanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
+    //支付结果通知
+    void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime);
+};
+#endif // CALLBACKIMPL_H
+```
+> callbackimpl.cpp
+``` C++
+#include "callbackimpl.h"
+#include "SSX_SDK.h"
+using namespace std;
+void CallBackImpl::scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar){
+    cout << "client interface impl scanQrCodePay() " << endl;
+    //获取出口要出场的唯一一个车场的订单数据
+    const string orderId="201809140002";
+    const string carNumber="A888888";
+    const string inTime="20180831123056";
+    const string inChannel="0001";
+    const string outTime="20180831133056";
+    const string outChannel="0001";
+    const long duration=3600;
+    const int orderAmount=300;
+
+    string responseData = SSXSDK::scanningOrder(scanNumber,orderId,carNumber,inTime ,inChannel,outTime,outChannel,duration,orderAmount);
+
+   cout << "CallBackImpl --> scanQrCodePay() -->" << responseData << endl;
+｝
+```
+>输出结果：{"code":"0000","msg":"推送成功!"}
 
 
 #### 2.2.4、支付结果通知
 ##### 2.2.4.1、简述
+主要用于支付结果的通知，仅在支付成功的时候调用
 ##### 2.2.4.2、调用方法
+需要车场的计费系统实现接口`CommandInterface中的noticeOfPaymentResult (string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime,string parkCode)`方法，计费系统自行决定自己的业务处理
 ##### 2.2.4.3、传入参数
-##### 2.2.4.4、返回值
-##### 2.2.4.5、示例
+>回调方法传入参数
 
-## 附录:通知实现方式
+参数|必选|类型|说明
+---|---|---|---
+orderId|true|string|车场流水号
+parkCode|true|string|车场编号 v1.0.1 add
+carNumber|true|string|车牌号
+payStatus|true|int|支付状态 0:失败 1:成功
+payMethod|true|int|付款发起方式 1扫码 2预支付 3现金 4其他 v1.0.1add
+orderAmount|true|int|支付金额
+duration|true|int|停车时长
+inTime|true|string|入场时间
+outTime|true|string|出场时间
+payTime|true|string|支付时间
+
+##### 2.2.4.4、返回值
+参数|类型|说明
+---|---|---
+code|string|返回码
+msg|string|返回信息描述
+
+##### 2.2.4.5、示例
+> callbackimpl.h
+``` C++
+#include <iostream>
+#include "CommandInterface.h"
+ 
+using namespace std;
+using namespace ssx_sdk;
+ 
+#ifndef CALLBACKIMPL_H
+#define CALLBACKIMPL_H
+ 
+class CallBackImpl:public CommandInterface{
+public:
+    CallBackImpl(){}
+    //预支付场景 获取订单数据
+    void queryOrder(string orderId, string carNumber);
+    //扫码支付获取最新要出场且在出场闸口的车辆订单数据
+    void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
+    //扫码入场
+    voidscanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
+    //支付结果通知
+    void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime);
+};
+#endif // CALLBACKIMPL_H
+```
+> callbackimpl.cpp
+``` C++
+#include "callbackimpl.h"
+#include "SSX_SDK.h"
+ 
+using namespace std;
+ 
+void CallBackImpl::noticeOfPaymentResult(stringorderId, string carNumber,int payStatus,int orderAmount,int duration,stringinTime,string outTime,string payTime){
+    cout<< "client interface impl noticeOfPaymentResult() " <<endl;
+    if(payStatus == 0){
+        cout<< "client interface impl noticeOfPaymentResult() pay error!"<< endl;
+    }else{
+        cout<< "client interface impl noticeOfPaymentResult() paysuccess!" << endl;
+    }
+}
+```
+
+## 附录一:通知实现方式
+### 1、接口方式
+#### 1.1、头文件
+>callbackimpl.h
+``` C++
+#include<iostream>
+#include "CommandInterface.h"
+ 
+using namespace std;
+using namespacessx_sdk;
+ 
+#ifndef CALLBACKIMPL_H
+#define CALLBACKIMPL_H
+ 
+classCallBackImpl:public CommandInterface
+{
+public:
+    CallBackImpl() {}
+    //预支付场景 获取订单数据
+    void queryOrder(string parkCode,string orderId,string carNumber);
+ 
+    //扫码支付获取最新要出场且在出场闸口的车辆订单数据
+    void scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar);
+ 
+    //扫码入场
+    void scanQrEntry(string parkCode,string sysCode,string channel,string carNumber);
+ 
+    //支付结果通知
+    void noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime ,int payMethod,string parkCode);
+};
+#endif // CALLBACKIMPL_H
+```
+#### 1.1、源文件
+>callbackimpl.cpp
+
+``` C++
+#include"callbackimpl.h"
+#include "SSX_SDK.h"
+using namespace std;
+ 
+void CallBackImpl::queryOrder(string parkCode,string orderId, string carNumber) {
+    cout << "client interface implqueryOrder() " << endl;
+    const string _orderId=orderId;
+    const string _parkCode= parkCode;
+    const string_carNumber=carNumber;//carNumber
+    const stringinTime="20180831123056";
+    const string inChannel="0001";
+    const stringoutTime="20180831133056";
+    const string outChannel="0001";
+    const long duration=3600;
+    const int orderAmount=300;
+ 
+    cout << "CallBackImpl -->_carNumber() -->" << _carNumber << endl;
+    string responseData = "";
+    responseData =SSXSDK::pushOrder(_orderId, _carNumber, inTime,inChannel, outTime,outChannel, duration,orderAmount);
+ 
+    cout << "CallBackImpl -->queryOrder() -->" << responseData << endl;
+}
+ 
+ 
+void CallBackImpl::scanQrCodePay(string parkCode,string sysCode,string channel,string scanNumber,string orderId,string carNumber,int tempCar){
+    cout << "client interface implscanQrCodePay() parkCode:"<< parkCode << endl;
+    cout << "client interface implscanQrCodePay() sysCode:"<< sysCode << endl;
+    cout << "client interface implscanQrCodePay() channel:"<< channel  << endl;
+    cout << "client interface implscanQrCodePay() scanNumber:"<< scanNumber << endl;
+    cout << "client interface implscanQrCodePay() tempCar:"<< tempCar << endl;
+    //获取出口要出场的唯一一个车场的订单数据
+    //const string orderId="201809140002";
+    //const string carNumber="A888888";
+    const stringinTime="20180831123056";
+    const string inChannel="0001";
+    const stringoutTime="20180831133056";
+    const string outChannel="0001";
+    const long duration=3600;
+    const int orderAmount=300;
+    string responseData="";
+    responseData =SSXSDK::scanningOrder(scanNumber,orderId,carNumber,inTime,inChannel,outTime,outChannel,duration,orderAmount);
+ 
+    cout << "CallBackImpl -->scanQrCodePay() -->" << responseData << endl;
+}
+ 
+void CallBackImpl::scanQrEntry(string parkCode,string sysCode,string channel,string carNumber){
+    cout << "client interface implscanQrEntry() " << endl;
+ 
+    cout << "client interface implscanQrEntry()--> " << parkCode << endl;
+    cout << "client interface implscanQrEntry()--> " << sysCode << endl;
+    cout << "client interface implscanQrEntry()--> " << channel << endl;
+    cout << "client interface implscanQrEntry()--> " << carNumber << endl;
+ 
+    //车场自行判断数据入口是否有车辆等待入场 放行入场推送 入场数据
+}
+ 
+void CallBackImpl::noticeOfPaymentResult(string orderId, string carNumber,int payStatus,int orderAmount,int duration,string inTime,string outTime,string payTime ,int payMethod,string    parkCode){
+    cout << "client interface implnoticeOfPaymentResult() " << endl;
+    if(payStatus == 0){
+        cout << "client interfaceimpl noticeOfPaymentResult() pay error!" << endl;
+    }else{
+        cout << "client interfaceimpl noticeOfPaymentResult() pay success!" << endl;
+    }
+}
+```
+
+#### 1.3、设置方法
+``` C++
+CallBackImpl *cmd = new CallBackImpl();
+SSXSDK::setCommandInterface(cmd);
+```
+
+### 2、回调函数方式
+#### 2.1、头文件
+>callbackservice.h
+
+``` C++
+#ifndef CALLBACKSERVICE_H
+#define CALLBACKSERVICE_H
+ 
+class CallBackService{
+public:
+    CallBackService();
+    ~CallBackService();
+ 
+    /**
+     * @briefhandleNotice
+     * @paramstrJsonData
+     * 处理通知相关的方法
+     */
+    static void handleNotice(constchar * strJsonData);
+ 
+};
+#endif // CALLBACKSERVICE_H
+```
+
+#### 2.2、源文件
+>callbackservice.cpp
+
+``` C++
+#include "callbackservice.h"
+#include "SSX_SDK.h"
+#include <iostream>
+#include <string>
+
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QVariantMap>
+
+using namespace std;
+using namespace ssx_sdk;
+
+CallBackService::CallBackService()
+{
+
+}
+
+
+CallBackService::~CallBackService()
+{
+
+}
+
+int charLength(const char* str){
+    int len = 0;
+    while(str[len]){
+        len = len + 1;
+    }
+    return len;
+}
+
+void CallBackService::handleNotice(const char* strJsonData){
+
+    cout << "CallBackService-->handleNotice()" << endl;
+
+    cout << "CallBackService-->handleNotice() param "<< strJsonData << endl;
+
+     cout << "CallBackService-->handleNotice() charLength "<< charLength(strJsonData) << endl;
+    int valuesize = charLength(strJsonData);
+    QByteArray jsonData = QByteArray(strJsonData,valuesize);
+    QString simpjson_str(jsonData);
+
+    string cstr = string(jsonData);
+    cout << " request data:  "<< cstr << endl;
+    //    char *qc  = new char[1024];
+    //    strcpy(qc,strJsonData);
+    //    QString qStr = QString(QLatin1String(qc));
+
+    //    QByteArray cdata = qStr.toLatin1();
+
+    //解析json数据
+    QJsonParseError error;
+    QJsonDocument document = QJsonDocument::fromJson(simpjson_str.toUtf8(), &error);
+
+    if(QJsonParseError::NoError == error.error)
+    {   //map
+        QVariantMap map = document.toVariant().toMap();
+
+        string command = map["command"].toString().toStdString();
+        cout << "CallBackService-->handleNotice() command : "<< command << endl;
+        if (command.size() > 0 && strcmp("", command.c_str()) != 0) {
+            string responseStr="is empty!";
+            if (strcmp("prePay", command.c_str()) == 0) {//查询订单(预支付场景)
+
+                string orderId = map["orderId"].toString().toStdString();
+                string carNumber = map["carNumber"].toString().toStdString();
+                string parkCode = map["parkCode"].toString().toStdString();
+
+                QString str = map["carNumber"].toString();
+                QByteArray cdata = str.toLocal8Bit();
+                carNumber = string(cdata);
+                cout << "carNumber : " << carNumber << endl;
+                //根据orderId和carNumber查询出相应的订单数据
+
+                const string inTime="20180831123056";
+                const string inChannel="0001";
+                const string outTime="20180831133056";
+                const string outChannel="A4";
+                const long duration=3600;
+                const int orderAmount=300;
+
+                responseStr = SSXSDK::pushOrder(orderId, carNumber, inTime,inChannel, outTime, outChannel, duration,orderAmount);
+            }
+            else if (strcmp("qrCodePay", command.c_str()) == 0) {//扫描二维码支付  出场扫码支付
+                string parkCode = map["parkCode"].toString().toStdString();
+                string sysCode = map["sysCode"].toString().toStdString();
+                string channel = map["channel"].toString().toStdString();
+                string scanNumber = map["scanNumber"].toString().toStdString();
+                string orderId = map["orderId"].toString().toStdString();
+                string carNumber = map["carNumber"].toString().toStdString();
+                int tempCar = map["tempCar"].toInt();//是否是临时车牌 1true 0false
+
+                const string inTime="20180831123056";
+                const string inChannel="0001";
+                const string outTime="20180831133056";
+                const string outChannel="A4";
+                const long duration=3600;
+                const int orderAmount=300;
+
+                responseStr = SSXSDK::scanningOrder(scanNumber,orderId,carNumber,inTime ,inChannel,outTime,outChannel,duration,orderAmount);
+            }
+            else if (strcmp("qrCodeEntry", command.c_str()) == 0) {//扫码入场通知
+                string parkCode = map["parkCode"].toString().toStdString();
+                string sysCode = map["sysCode"].toString().toStdString();
+                string channel = map["channel"].toString().toStdString();
+                string carNumber = map["carNumber"].toString().toStdString();
+                string scanNumber = map["scanNumber"].toString().toStdString();
+
+                cout << "client interface impl scanQrEntry() " << endl;
+
+                cout << "client callFunction qrCodeEntry parkCode --> " << parkCode << endl;
+                cout << "client callFunction qrCodeEntry sysCode --> " << sysCode << endl;
+                cout << "client callFunction qrCodeEntry channel --> " << channel << endl;
+                cout << "client callFunction qrCodeEntry carNumber --> " << carNumber << endl;
+                cout << "client callFunction qrCodeEntry scanNumber --> " << scanNumber << endl;
+            }
+            else if (strcmp("payNotice", command.c_str()) == 0)
+            {//支付通知
+                string orderId = map["orderId"].toString().toStdString();
+                string carNumber = map["carNumber"].toString().toStdString();
+                int payStatus = map["payStatus"].toInt();
+                int payAmount = map["payAmount"].toInt();
+                int duration = map["duration"].toInt();
+                string inTime = map["inTime"].toString().toStdString();
+                string outTime = map["outTime"].toString().toStdString();
+                string payTime = map["payTime"].toString().toStdString();
+                int payMethod = map["payMethod"].toInt();
+                string parkCode = map["parkCode"].toString().toStdString();
+
+                cout << "payNotice orderId " << orderId << endl;
+                cout << "payNotice carNumber " << carNumber << endl;
+                cout << "payNotice payStatus " << payStatus << endl;
+                cout << "payNotice payAmount " << payAmount << endl;
+                cout << "payNotice duration " << duration << endl;
+                cout << "payNotice inTime " << inTime << endl;
+                cout << "payNotice outTime " << outTime << endl;
+                cout << "payNotice payTime " << payTime << endl;
+                cout << "payNotice payMethod " << payMethod << endl;
+                cout << "payNotice parkCode " << parkCode << endl;
+
+                cout << "client interface impl noticeOfPaymentResult() " << endl;
+                if(payStatus == 0){
+                    cout << "client interface impl noticeOfPaymentResult() pay error!" << endl;
+                }else{
+                    cout << "client interface impl noticeOfPaymentResult() pay success!" << endl;
+                }
+            }
+            else {
+                cout << " CallBackService handleNotice () Unknown command !" << endl;
+            }
+
+            cout << "CallBackService --> handleNotice() responseData -->" << responseStr << endl;
+        }else{
+            cout << "CallBackService-->handleNotice() command is null " << endl;
+        }
+    }else{
+        cout << "CallBackService-->handleNotice() Parsing error!!!! " << endl;
+    }
+}
+```
+
+#### 2.3、设置方法
+``` C++
+void MainWindow::noticeCallBack(const char* strJsonData){
+    cout << "callback function :" << strJsonData << endl;
+    CallBackService::handleNotice(strJsonData);
+}
+
+SSXSDK::setCallBackFun((CallBackFun)noticeCallBack);
+```
+
